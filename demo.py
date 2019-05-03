@@ -26,7 +26,11 @@ import numpy as np
 import skimage.io as io
 import tensorflow as tf
 
-from src.util import renderer as vis_util
+import datetime
+import glob
+import os
+
+# from src.util import renderer as vis_util
 from src.util import image as img_util
 from src.util import openpose as op_util
 import src.config
@@ -116,22 +120,59 @@ def preprocess_image(img_path, json_path=None):
     return crop, proc_param, img
 
 
+def save(verts, filename):
+    ## Write to an .obj file
+    outmesh_path = './'+filename+'.obj'
+    with open( outmesh_path, 'w') as fp:
+    #    fp.write(np.array2string(verts[0], precision=6, separator=' ', threshold=10000000, suppress_small=True))
+         for v in verts:
+            fp.write( 'v %f %f %f\n' % ( v[0], v[1], v[2]) )
+            # fp.write( v.tolist())
+
+
+        # for f in m.f+1: # Faces are 1-based, not 0-based in obj files
+        #     fp.write( 'f %d %d %d\n' %  (f[0], f[1], f[2]) )
+
+    ## Print message
+    print('..Output mesh saved to: '+ outmesh_path)
+
+
 def main(img_path, json_path=None):
     sess = tf.Session()
     model = RunModel(config, sess=sess)
 
-    input_img, proc_param, img = preprocess_image(img_path, json_path)
-    # Add batch dimension: 1 x D x D x 3
-    input_img = np.expand_dims(input_img, 0)
+    print(img_path)
 
-    # Theta is the 85D vector holding [camera, pose, shape]
-    # where camera is 3D [s, tx, ty]
-    # pose is 72D vector holding the rotation of 24 joints of SMPL in axis angle format
-    # shape is 10D shape coefficients of SMPL
-    joints, verts, cams, joints3d, theta = model.predict(
-        input_img, get_theta=True)
+    images= glob.glob('.\data\*.PNG')
+    print(images)
 
-    visualize(img, proc_param, joints[0], verts[0], cams[0])
+    for input_img in images:
+        filename, file_extension = os.path.splitext(input_img)
+        print(filename)
+        pass
+
+        input_img, proc_param, img = preprocess_image(input_img, json_path)
+        # Add batch dimension: 1 x D x D x 3
+        input_img = np.expand_dims(input_img, 0)
+
+        # Theta is the 85D vector holding [camera, pose, shape]
+        # where camera is 3D [s, tx, ty]
+        # pose is 72D vector holding the rotation of 24 joints of SMPL in axis angle format
+        # shape is 10D shape coefficients of SMPL
+        start = datetime.datetime.now()
+        joints, verts, cams, joints3d, theta = model.predict(
+            input_img, get_theta=True)
+        end = datetime.datetime.now()
+        delta = end -start
+        print("took:" , delta)
+        # print("joints" + joints)
+        # print("verts" , verts)
+        save(verts[0],filename)
+        # print("cams"+ cams)
+        # print("joints3d"+joints3d)
+        # print("theta"+theta)
+
+        # visualize(img, proc_param, joints[0], verts[0], cams[0])
 
 
 if __name__ == '__main__':
@@ -142,6 +183,6 @@ if __name__ == '__main__':
 
     config.batch_size = 1
 
-    renderer = vis_util.SMPLRenderer(face_path=config.smpl_face_path)
+    # renderer = vis_util.SMPLRenderer(face_path=config.smpl_face_path)
 
     main(config.img_path, config.json_path)
